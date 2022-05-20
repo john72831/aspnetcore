@@ -7,10 +7,12 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <Nullable>Enable</Nullable>
     <RootNamespace>Microsoft.AspNetCore.Analyzers</RootNamespace>
+    <NoWarn>CS0281</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
+    <Reference Include="Microsoft.CodeAnalysis.ExternalAccess.AspNetCore" />
 
     <InternalsVisibleTo Include="Microsoft.AspNetCore.App.Analyzers.Test" />
     <InternalsVisibleTo Include="Microsoft.AspNetCore.App.CodeFixes" />
