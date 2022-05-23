@@ -7,7 +7,6 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <Nullable>Enable</Nullable>
     <RootNamespace>Microsoft.AspNetCore.Analyzers</RootNamespace>
-    <NoWarn>CS0281</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

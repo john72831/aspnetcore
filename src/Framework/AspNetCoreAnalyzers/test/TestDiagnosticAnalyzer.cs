@@ -30,7 +30,6 @@ public class TestDiagnosticAnalyzerRunner : DiagnosticAnalyzerRunner
         var classificationOptions = Activator.CreateInstance(classificationOptionsType);
 
         var method = classifierHelperType.GetMethod("GetClassifiedSpansAsync");
-        //method
 
         var doc = project.Solution.GetDocument(project.Documents.First().Id);
 
@@ -40,30 +39,11 @@ public class TestDiagnosticAnalyzerRunner : DiagnosticAnalyzerRunner
         return result.ToArray();
     }
 
-    public async Task<Diagnostic[]> GetDiagnosticsAsync(params string[] sources)
+    public Task<Diagnostic[]> GetDiagnosticsAsync(params string[] sources)
     {
         var project = CreateProjectWithReferencesInBinDir(GetType().Assembly, sources);
 
-        var classifierHelperType = project.GetType().Assembly.GetType("Microsoft.CodeAnalysis.Classification.ClassifierHelper");
-        var classificationOptionsType = project.GetType().Assembly.GetType("Microsoft.CodeAnalysis.Classification.ClassificationOptions");
-        var classificationOptions = Activator.CreateInstance(classificationOptionsType);
-
-        var method = classifierHelperType.GetMethod("GetClassifiedSpansAsync");
-        //method
-
-        var doc = project.Solution.GetDocument(project.Documents.First().Id);
-
-        var resultTask = (Task<ImmutableArray<ClassifiedSpan>>)method.Invoke(obj: null, new object[] { doc, new TextSpan(0, 200), classificationOptions, CancellationToken.None, true, true });
-        var result = await resultTask;
-        //var languageService = project.Solution.Workspace.Services.GetLanguageServices("C#");
-
-        //var project.GetType().Assembly.GetType("Microsoft.CodeAnalysis.Classification.IClassificationService");
-
-        //var method = languageService.GetType().GetMethod("GetRequiredService");
-        //method.MakeGenericMethod
-        //languageService.GetRequiredService
-
-        return await GetDiagnosticsAsync(project);
+        return GetDiagnosticsAsync(project);
     }
 
     public static Project CreateProjectWithReferencesInBinDir(Assembly testAssembly, params string[] source)
