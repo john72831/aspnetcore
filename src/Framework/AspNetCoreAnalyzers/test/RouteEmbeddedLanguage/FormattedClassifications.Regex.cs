@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
+using Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 using Microsoft.CodeAnalysis.Classification;
 
 namespace Microsoft.CodeAnalysis.Editor.UnitTests.Classification

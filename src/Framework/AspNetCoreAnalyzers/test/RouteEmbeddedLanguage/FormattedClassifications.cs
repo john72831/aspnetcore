@@ -5,6 +5,7 @@
 #nullable disable
 
 using System.Diagnostics;
+using Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 using Microsoft.CodeAnalysis.Classification;
 
 namespace Microsoft.CodeAnalysis.Editor.UnitTests.Classification

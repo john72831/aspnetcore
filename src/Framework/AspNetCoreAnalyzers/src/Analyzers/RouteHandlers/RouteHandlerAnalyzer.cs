@@ -24,6 +24,9 @@ public partial class RouteHandlerAnalyzer : DiagnosticAnalyzer
 
     public override void Initialize(AnalysisContext context)
     {
+        System.Diagnostics.Debugger.Break();
+        System.Diagnostics.Debugger.Launch();
+
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 

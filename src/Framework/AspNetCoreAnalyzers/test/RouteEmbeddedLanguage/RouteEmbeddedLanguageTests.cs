@@ -31,7 +31,7 @@ public class RouteEmbeddedLanguageTests
 
         foreach (var item in actual)
         {
-            _output.WriteLine(item.ToString());
+            _output.WriteLine(item.ClassificationType + " " + item.TextSpan);
         }
     }
 
@@ -51,6 +51,31 @@ using System.Text.RegularExpressions;
 class Program
 {
     [StringSyntax(StringSyntaxAttribute.Regex)]
+    private string field;
+
+    void Goo()
+    {
+        [|this.field = @""$\a(?#comment)"";|]
+    }
+}" + EmbeddedLanguagesTestConstants.StringSyntaxAttributeCodeCSharp,
+Field("field"),
+Regex.Anchor("$"),
+Regex.OtherEscape("\\"),
+Regex.OtherEscape("a"),
+Regex.Comment("(?#comment)"));
+    }
+
+    [Fact]
+    public async Task sdfsdfsdf()
+    {
+        await TestAsync(
+@"
+using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
+
+class Program
+{
+    [StringSyntax(""Route"")]
     private string field;
 
     void Goo()
