@@ -15,9 +15,6 @@ internal class RouteEmbeddedLanguageClassifier : IAspNetCoreEmbeddedLanguageClas
     public void RegisterClassifications(AspNetCoreEmbeddedLanguageClassificationContext context)
     {
         var parser = RoutePatternParser.TryParse(context.VirtualCharSequence, System.Text.RegularExpressions.RegexOptions.None);
-        //parser.
-        //AspNetCoreVirtualCharSequence sequence = context.VirtualCharSequence;
-        //var newSpan = new TextSpan(context.SyntaxToken.FullSpan.Start + 1, context.SyntaxToken.FullSpan.Length - 2);
 
         var visitor = new Visitor(context);
         AddClassifications(parser.Root, visitor);

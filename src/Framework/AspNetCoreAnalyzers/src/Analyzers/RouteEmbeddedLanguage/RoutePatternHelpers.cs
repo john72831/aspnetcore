@@ -9,14 +9,21 @@ using Microsoft.CodeAnalysis.ExternalAccess.AspNetCore.EmbeddedLanguages;
 
 namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 
-using RoutePatternToken = EmbeddedSyntaxToken<RoutePatternKind>;
+using RoutePatternToken = EmbeddedSyntaxToken<NewRoutePatternKind>;
 
 internal static class RoutePatternHelpers
 {
-    public static RoutePatternToken CreateToken(RoutePatternKind kind, AspNetCoreVirtualCharSequence virtualChars)
+    public static RoutePatternToken CreateToken(NewRoutePatternKind kind, AspNetCoreVirtualCharSequence virtualChars)
         => new(kind, virtualChars, ImmutableArray<EmbeddedDiagnostic>.Empty, value: null);
 
-    public static RoutePatternToken CreateMissingToken(RoutePatternKind kind)
+    public static RoutePatternToken CreateMissingToken(NewRoutePatternKind kind)
+        => CreateToken(kind, AspNetCoreVirtualCharSequence.Empty);
+
+    // Old
+    public static EmbeddedSyntaxToken<RoutePatternKind> CreateToken(RoutePatternKind kind, AspNetCoreVirtualCharSequence virtualChars)
+    => new(kind, virtualChars, ImmutableArray<EmbeddedDiagnostic>.Empty, value: null);
+
+    public static EmbeddedSyntaxToken<RoutePatternKind> CreateMissingToken(RoutePatternKind kind)
         => CreateToken(kind, AspNetCoreVirtualCharSequence.Empty);
 
     ///// <summary>

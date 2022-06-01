@@ -200,10 +200,10 @@
     -->
     <Analyzer_MicrosoftCodeAnalysisCSharpVersion>3.3.1</Analyzer_MicrosoftCodeAnalysisCSharpVersion>
     <Analyzer_MicrosoftCodeAnalysisCSharpWorkspacesVersion>3.3.1</Analyzer_MicrosoftCodeAnalysisCSharpWorkspacesVersion>
-    <MicrosoftCodeAnalysisExternalAccessAspNetCoreVersion>4.3.0-2.22278.4</MicrosoftCodeAnalysisExternalAccessAspNetCoreVersion>
-    <MicrosoftCodeAnalysisCommonVersion>4.3.0-2.22278.4</MicrosoftCodeAnalysisCommonVersion>
-    <MicrosoftCodeAnalysisCSharpVersion>4.3.0-2.22278.4</MicrosoftCodeAnalysisCSharpVersion>
-    <MicrosoftCodeAnalysisCSharpWorkspacesVersion>4.3.0-2.22278.4</MicrosoftCodeAnalysisCSharpWorkspacesVersion>
+    <MicrosoftCodeAnalysisExternalAccessAspNetCoreVersion>4.3.0-2.22280.1</MicrosoftCodeAnalysisExternalAccessAspNetCoreVersion>
+    <MicrosoftCodeAnalysisCommonVersion>4.3.0-2.22280.1</MicrosoftCodeAnalysisCommonVersion>
+    <MicrosoftCodeAnalysisCSharpVersion>4.3.0-2.22280.1</MicrosoftCodeAnalysisCSharpVersion>
+    <MicrosoftCodeAnalysisCSharpWorkspacesVersion>4.3.0-2.22280.1</MicrosoftCodeAnalysisCSharpWorkspacesVersion>
     <MicrosoftCodeAnalysisPublicApiAnalyzersVersion>3.3.0</MicrosoftCodeAnalysisPublicApiAnalyzersVersion>
     <MicrosoftCodeAnalysisCSharpAnalyzerTestingXUnitVersion>1.1.1-beta1.21413.1</MicrosoftCodeAnalysisCSharpAnalyzerTestingXUnitVersion>
     <MicrosoftCodeAnalysisCSharpCodeFixTestingXUnitVersion>1.1.1-beta1.21413.1</MicrosoftCodeAnalysisCSharpCodeFixTestingXUnitVersion>

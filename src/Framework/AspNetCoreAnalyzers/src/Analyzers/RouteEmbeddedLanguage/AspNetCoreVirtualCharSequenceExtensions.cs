@@ -64,4 +64,7 @@ internal static class AspNetCoreVirtualCharSequenceExtensions
         => instance.Rune == other.Rune &&
            instance.SurrogateChar == other.SurrogateChar &&
            instance.Span == other.Span;
+
+    public static bool IsDefault(this AspNetCoreVirtualCharSequence virtualChars)
+        => virtualChars.Equals(default(AspNetCoreVirtualCharSequence));
 }

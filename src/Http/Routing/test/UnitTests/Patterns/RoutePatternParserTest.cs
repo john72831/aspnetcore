@@ -27,6 +27,23 @@ public class RoutePatternParameterParserTest
     }
 
     [Fact]
+    public void sdfsddfgdfgf()
+    {
+        // Arrange
+        var template = "a{foob{bar}c";
+
+        var expected = Pattern(
+            template,
+            Segment(LiteralPart("cool")));
+
+        // Act
+        var actual = RoutePatternParser.Parse(template);
+
+        // Assert
+        Assert.Equal<RoutePattern>(expected, actual, new RoutePatternEqualityComparer());
+    }
+
+    [Fact]
     public void Parse_SingleParameter()
     {
         // Arrange
@@ -164,6 +181,26 @@ public class RoutePatternParameterParserTest
                 LiteralPart("cool-"),
                 ParameterPart("p1"),
                 LiteralPart("-awesome")));
+
+        // Act
+        var actual = RoutePatternParser.Parse(template);
+
+        // Assert
+        Assert.Equal<RoutePattern>(expected, actual, new RoutePatternEqualityComparer());
+    }
+
+    [Fact]
+    public void sdfsdf()
+    {
+        // Arrange
+        var template = ".{sdf}";
+
+        var expected = Pattern(
+            template,
+            Segment(
+                ParameterPart("p1"),
+                SeparatorPart("."),
+                ParameterPart("p2", null, RoutePatternParameterKind.Optional)));
 
         // Act
         var actual = RoutePatternParser.Parse(template);
