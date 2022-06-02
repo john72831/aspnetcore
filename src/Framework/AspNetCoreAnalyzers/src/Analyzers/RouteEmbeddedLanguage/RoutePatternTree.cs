@@ -10,20 +10,42 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 
-internal sealed class RoutePatternTree : EmbeddedSyntaxTree<RoutePatternKind, RoutePatternNode, RegexCompilationUnit>
+internal sealed class RoutePatternTree : EmbeddedSyntaxTree<RoutePatternKind, RoutePatternNode, RoutePatternCompilationUnit>
 {
-    public readonly ImmutableDictionary<string, TextSpan> CaptureNamesToSpan;
-    public readonly ImmutableDictionary<int, TextSpan> CaptureNumbersToSpan;
+    public readonly ImmutableDictionary<string, RouteParameter> RouteParameters;
 
     public RoutePatternTree(
         AspNetCoreVirtualCharSequence text,
-        RegexCompilationUnit root,
+        RoutePatternCompilationUnit root,
         ImmutableArray<EmbeddedDiagnostic> diagnostics,
-        ImmutableDictionary<string, TextSpan> captureNamesToSpan,
-        ImmutableDictionary<int, TextSpan> captureNumbersToSpan)
+        ImmutableDictionary<string, RouteParameter> routeParameters)
         : base(text, root, diagnostics)
     {
-        CaptureNamesToSpan = captureNamesToSpan;
-        CaptureNumbersToSpan = captureNumbersToSpan;
+        RouteParameters = routeParameters;
+    }
+}
+
+internal readonly struct RouteParameter
+{
+    public RouteParameter(string name, bool encodeSlashes, string? defaultValue, bool isOptional, bool isCatchAll, ImmutableArray<string> policies)
+    {
+        Name = name;
+        EncodeSlashes = encodeSlashes;
+        DefaultValue = defaultValue;
+        IsOptional = isOptional;
+        IsCatchAll = isCatchAll;
+        Policies = policies;
+    }
+
+    public readonly string Name;
+    public readonly bool EncodeSlashes;
+    public readonly string? DefaultValue;
+    public readonly bool IsOptional;
+    public readonly bool IsCatchAll;
+    public readonly ImmutableArray<string> Policies;
+
+    public override string ToString()
+    {
+        return Name;
     }
 }

@@ -3,10 +3,7 @@
 
 #nullable disable
 
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.Common;
-using Microsoft.CodeAnalysis.EmbeddedLanguages.VirtualChars;
 using Microsoft.CodeAnalysis.ExternalAccess.AspNetCore.EmbeddedLanguages;
 using Microsoft.CodeAnalysis.Text;
 
@@ -16,25 +13,7 @@ using static RoutePatternHelpers;
 
 using RoutePatternToken = EmbeddedSyntaxToken<RoutePatternKind>;
 
-/// <summary>
-/// Produces tokens from the sequence of <see cref="VirtualChar"/> characters.  Unlike the
-/// native C# and VB lexer, this lexer is much more tightly controlled by the parser.  For
-/// example, while C# can have trivia on virtual every token, the same is not true for
-/// RegexTokens.  As such, instead of automatically lexing out tokens to make them available for
-/// the parser, the parser asks for each token as necessary passing the right information to
-/// indicate which types and shapes of tokens are allowed.
-///
-/// The tight coupling means that the parser is allowed direct control of the position of the
-/// lexer.
-///
-/// Note: most of the time, tokens returned are just a single character long, including for long
-/// sequences of text characters (like ```"goo"```).  This is just three <see
-/// cref="RegexTextNode"/>s in a row (each containing a <see cref="RoutePatternKind.TextToken"/> a
-/// single character long).
-///
-/// There are multi-character tokens though.  For example ```10``` in ```a{10,}``` or ```name```
-/// in ```\k'name'```
-/// </summary>
+
 internal struct RoutePatternLexer
 {
     public readonly AspNetCoreVirtualCharSequence Text;
@@ -67,28 +46,20 @@ internal struct RoutePatternLexer
     private static RoutePatternKind GetKind(AspNetCoreVirtualChar ch)
         => ch.Value switch
         {
-            '|' => RoutePatternKind.BarToken,
-            '*' => RoutePatternKind.AsteriskToken,
-            '+' => RoutePatternKind.PlusToken,
-            '?' => RoutePatternKind.QuestionToken,
+            '/' => RoutePatternKind.SlashToken,
+            '~' => RoutePatternKind.TildeToken,
             '{' => RoutePatternKind.OpenBraceToken,
             '}' => RoutePatternKind.CloseBraceToken,
-            '\\' => RoutePatternKind.BackslashToken,
             '[' => RoutePatternKind.OpenBracketToken,
             ']' => RoutePatternKind.CloseBracketToken,
             '.' => RoutePatternKind.DotToken,
-            '^' => RoutePatternKind.CaretToken,
-            '$' => RoutePatternKind.DollarToken,
+            '=' => RoutePatternKind.EqualsToken,
+            ':' => RoutePatternKind.ColonToken,
+            '*' => RoutePatternKind.AsteriskToken,
             '(' => RoutePatternKind.OpenParenToken,
             ')' => RoutePatternKind.CloseParenToken,
+            '?' => RoutePatternKind.QuestionMarkToken,
             ',' => RoutePatternKind.CommaToken,
-            ':' => RoutePatternKind.ColonToken,
-            '=' => RoutePatternKind.EqualsToken,
-            '!' => RoutePatternKind.ExclamationToken,
-            '<' => RoutePatternKind.LessThanToken,
-            '>' => RoutePatternKind.GreaterThanToken,
-            '-' => RoutePatternKind.MinusToken,
-            '\'' => RoutePatternKind.SingleQuoteToken,
             _ => RoutePatternKind.TextToken,
         };
 
@@ -112,112 +83,41 @@ internal struct RoutePatternLexer
         return true;
     }
 
-    private static bool IsBlank(AspNetCoreVirtualChar ch)
-    {
-        // List taken from the native regex parser.
-        switch (ch.Value)
-        {
-            case '\u0009':
-            case '\u000A':
-            case '\u000C':
-            case '\u000D':
-            case ' ':
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    public RoutePatternToken? TryScanEscapeCategory()
-    {
-        var start = Position;
-        while (Position < Text.Length &&
-               IsEscapeCategoryChar(CurrentChar))
-        {
-            Position++;
-        }
-
-        if (Position == start)
-        {
-            return null;
-        }
-
-        var token = CreateToken(RoutePatternKind.EscapeCategoryToken, GetSubPatternToCurrentPos(start));
-        var category = token.VirtualChars.CreateString();
-
-        if (!RegexCharClass.IsEscapeCategory(category))
-        {
-            token = token.AddDiagnosticIfNone(new EmbeddedDiagnostic(
-                string.Format(FeaturesResources.Unknown_property_0, category),
-                token.GetSpan()));
-        }
-
-        return token;
-    }
-
-    private static bool IsEscapeCategoryChar(AspNetCoreVirtualChar ch)
-        => ch.Value is '-' or
-           >= 'a' and <= 'z' or
-           >= 'A' and <= 'Z';
-
-    public RoutePatternToken? TryScanNumber()
+    internal RoutePatternToken? TryScanLiteral()
     {
         if (Position == Text.Length)
         {
             return null;
         }
 
-        const int MaxValueDiv10 = int.MaxValue / 10;
-        const int MaxValueMod10 = int.MaxValue % 10;
-
-        var value = 0;
         var start = Position;
-        var error = false;
-        while (Position < Text.Length && CurrentChar is var ch && IsDecimalDigit(ch))
-        {
-            Position++;
 
-            unchecked
+        int? mismatchPosition = null;
+        int? questionMarkPosition = null;
+        while (Position < Text.Length)
+        {
+            var ch = CurrentChar;
+
+            if (ch.Value == '/')
             {
-                var charVal = ch.Value - '0';
-                if (value > MaxValueDiv10 || value == MaxValueDiv10 && charVal > MaxValueMod10)
-                {
-                    error = true;
-                }
-
-                value *= 10;
-                value += charVal;
+                // Literal ends at a seperator or start of a parameter.
+                break;
             }
-        }
+            else if (ch.Value == '{' && IsUnescapedChar(ref Position, '{'))
+            {
+                // Literal ends at brace start.
+                break;
+            }
+            else if (ch.Value == '}' && IsUnescapedChar(ref Position, '}'))
+            {
+                // An unescaped brace is invalid.
+                mismatchPosition = Position;
+            }
+            else if (ch.Value == '?')
+            {
+                questionMarkPosition = Position;
+            }
 
-        if (Position == start)
-        {
-            return null;
-        }
-
-        var token = CreateToken(RoutePatternKind.NumberToken, GetSubPatternToCurrentPos(start));
-        token = token.With(value: value);
-
-        if (error)
-        {
-            token = token.AddDiagnosticIfNone(new EmbeddedDiagnostic(
-                FeaturesResources.Capture_group_numbers_must_be_less_than_or_equal_to_Int32_MaxValue,
-                token.GetSpan()));
-        }
-
-        return token;
-    }
-
-    public RoutePatternToken? TryScanCaptureName()
-    {
-        if (Position == Text.Length)
-        {
-            return null;
-        }
-
-        var start = Position;
-        while (Position < Text.Length && RegexCharClass.IsBoundaryWordChar(CurrentChar))
-        {
             Position++;
         }
 
@@ -226,120 +126,293 @@ internal struct RoutePatternLexer
             return null;
         }
 
-        var token = CreateToken(RoutePatternKind.CaptureNameToken, GetSubPatternToCurrentPos(start));
+        var token = CreateToken(RoutePatternKind.Literal, GetSubPatternToCurrentPos(start));
+        token = token.With(value: token.VirtualChars.CreateString());
+
+        // It's fine that this only warns about the first invalid close brace.
+        if (mismatchPosition != null)
+        {
+            token = token.AddDiagnosticIfNone(new EmbeddedDiagnostic(
+                Resources.TemplateRoute_MismatchedParameter,
+                token.GetSpan()));
+        }
+        if (questionMarkPosition != null)
+        {
+            token = token.AddDiagnosticIfNone(new EmbeddedDiagnostic(
+                Resources.FormatTemplateRoute_InvalidLiteral(token.Value),
+                token.GetSpan()));
+        }
+
+        return token;
+    }
+
+    private const char Separator = '/';
+    private const char OpenBrace = '{';
+    private const char CloseBrace = '}';
+    private const char QuestionMark = '?';
+    private const char Asterisk = '*';
+
+    internal static readonly char[] InvalidParameterNameChars = new char[]
+    {
+        Separator,
+        OpenBrace,
+        CloseBrace,
+        QuestionMark,
+        Asterisk
+    };
+
+    internal RoutePatternToken? TryScanParameterName()
+    {
+        if (Position == Text.Length)
+        {
+            return null;
+        }
+
+        var start = Position;
+        var hasInvalidChar = false;
+        var hasUnescapedOpenBrace = false;
+        while (Position < Text.Length)
+        {
+            var ch = CurrentChar;
+            if (ch.Value is ':' or '=')
+            {
+                break;
+            }
+            else if (IsTrailingQuestionMark(ch))
+            {
+                // Parameter name ends before question mark (optional) if at the end of the parameter name.
+                // e.g., {id?}
+                break;
+            }
+            else if (ch.Value == '}' && IsUnescapedChar(ref Position, '}'))
+            {
+                break;
+            }
+            else if (ch.Value == '{' && IsUnescapedChar(ref Position, '{'))
+            {
+                hasUnescapedOpenBrace = true;
+            }
+            else if (IsInvalidNameChar(ch))
+            {
+                hasInvalidChar = true;
+            }
+
+            Position++;
+        }
+
+        if (Position == start)
+        {
+            return null;
+        }
+
+        var token = CreateToken(RoutePatternKind.ParameterNameToken, GetSubPatternToCurrentPos(start));
+        token = token.With(value: token.VirtualChars.CreateString());
+        if (hasUnescapedOpenBrace)
+        {
+            token = token.AddDiagnosticIfNone(
+                new EmbeddedDiagnostic(Resources.TemplateRoute_UnescapedBrace, token.GetSpan()));
+        }
+        if (hasInvalidChar)
+        {
+            token = token.AddDiagnosticIfNone(
+                new EmbeddedDiagnostic(Resources.FormatTemplateRoute_InvalidParameterName(token.Value.ToString().Replace("{{", "{").Replace("}}", "}")), token.GetSpan()));
+        }
+
+        return token;
+
+        static bool IsInvalidNameChar(AspNetCoreVirtualChar ch) =>
+            ch.Value switch
+            {
+                Separator => true,
+                OpenBrace => true,
+                CloseBrace => true,
+                QuestionMark => true,
+                Asterisk => true,
+                _ => false
+            };
+    }
+
+    private bool IsTrailingQuestionMark(AspNetCoreVirtualChar ch)
+    {
+        return ch.Value == '?' && IsAt("?}") && !IsAt("?}}");
+    }
+
+    internal RoutePatternToken? TryScanUnescapedPolicyFragment()
+    {
+        if (Position == Text.Length)
+        {
+            return null;
+        }
+
+        var start = Position;
+        var hasUnescapedOpenBrace = false;
+        while (Position < Text.Length)
+        {
+            var ch = Text[Position];
+            if (ch.Value is ':' or '=' or '?')
+            {
+                break;
+            }
+            else if (ch.Value == '{' && IsUnescapedChar(ref Position, '{'))
+            {
+                hasUnescapedOpenBrace = true;
+            }
+            else if (IsUnescapedChar(ref Position, '}'))
+            {
+                break;
+            }
+
+            // Only start escaped fragment if there is an open and close.
+            if (ch.Value == '(')
+            {
+                if (HasPolicyParenClose())
+                {
+                    break;
+                }
+            }
+            Position++;
+        }
+
+        if (Position == start)
+        {
+            return null;
+        }
+
+        var token = CreateToken(RoutePatternKind.PolicyFragmentToken, GetSubPatternToCurrentPos(start));
+        token = token.With(value: token.VirtualChars.CreateString());
+        if (hasUnescapedOpenBrace)
+        {
+            token = token.AddDiagnosticIfNone(
+                new EmbeddedDiagnostic(Resources.TemplateRoute_UnescapedBrace, token.GetSpan()));
+        }
+        return token;
+    }
+
+    internal bool IsUnescapedChar(ref int position, char c)
+    {
+        if (Text[position].Value != c)
+        {
+            return false;
+        }
+
+        if (position + 1 >= Text.Length || Text[position + 1].Value != c)
+        {
+            return true;
+        }
+
+        position++;
+        return false;
+    }
+
+    internal RoutePatternToken? TryScanEscapedPolicyFragment()
+    {
+        if (Position == Text.Length)
+        {
+            return null;
+        }
+
+        var start = Position;
+        var parameterEndedWithoutCloseParen = false;
+        var hasUnescapedOpenBrace = false;
+        while (Position < Text.Length)
+        {
+            var ch = Text[Position];
+
+            if (IsUnescapedChar(ref Position, '}'))
+            {
+                parameterEndedWithoutCloseParen = true;
+                break;
+            }
+            else if (ch.Value == '{' && IsUnescapedChar(ref Position, '{'))
+            {
+                hasUnescapedOpenBrace = true;
+            }
+            else if (ch.Value == ')')
+            {
+                break;
+            }
+
+            Position++;
+        }
+
+        if (parameterEndedWithoutCloseParen)
+        {
+            // Couldn't find close paren before end of parameter.
+            // Reset position to start so content can be parsed as unescaped.
+            Position = start;
+            return null;
+        }
+
+        // This token could end with an unclosed parameter.
+        var token = CreateToken(RoutePatternKind.PolicyFragmentToken, GetSubPatternToCurrentPos(start));
+        token = token.With(value: token.VirtualChars.CreateString());
+        if (hasUnescapedOpenBrace)
+        {
+            token = token.AddDiagnosticIfNone(
+                new EmbeddedDiagnostic(Resources.TemplateRoute_UnescapedBrace, token.GetSpan()));
+        }
+        return token;
+    }
+
+    internal RoutePatternToken? TryScanDefaultValue()
+    {
+        if (Position == Text.Length)
+        {
+            return null;
+        }
+
+        var start = Position;
+        while (Position < Text.Length)
+        {
+            var ch = Text[Position];
+
+            if (ch.Value is '}')
+            {
+                break;
+            }
+            else if (IsTrailingQuestionMark(ch))
+            {
+                // Parameter name ends before question mark (optional) if at the end of the parameter name.
+                // e.g., {id?}
+                break;
+            }
+
+            Position++;
+        }
+
+        if (Position == start)
+        {
+            return null;
+        }
+
+        var token = CreateToken(RoutePatternKind.DefaultValueToken, GetSubPatternToCurrentPos(start));
         token = token.With(value: token.VirtualChars.CreateString());
         return token;
     }
 
-    public RoutePatternToken? TryScanNumberOrCaptureName()
-        => TryScanNumber() ?? TryScanCaptureName();
-
-    public RoutePatternToken? TryScanOptions()
+    internal bool HasPolicyParenClose()
     {
-        var start = Position;
-        while (Position < Text.Length && IsOptionChar(CurrentChar))
+        if (Position == Text.Length)
         {
-            Position++;
+            return false;
         }
 
-        return start == Position
-            ? null
-            : CreateToken(RoutePatternKind.OptionsToken, GetSubPatternToCurrentPos(start));
-    }
-
-    private static bool IsOptionChar(AspNetCoreVirtualChar ch)
-    {
-        switch (ch.Value)
+        var current = Position;
+        while (current < Text.Length)
         {
-            case '+':
-            case '-':
-            case 'i':
-            case 'I':
-            case 'm':
-            case 'M':
-            case 'n':
-            case 'N':
-            case 's':
-            case 'S':
-            case 'x':
-            case 'X':
+            var ch = Text[current];
+
+            if (ch.Value == ')')
+            {
                 return true;
-            default:
+            }
+            if (IsUnescapedChar(ref current, '}'))
+            {
                 return false;
-        }
-    }
-
-    public RoutePatternToken ScanHexCharacters(int count)
-    {
-        var start = Position;
-        var beforeSlash = start - 2;
-
-        // Make sure we're right after the \x or \u.
-        Debug.Assert(Text[beforeSlash].Value == '\\');
-        Debug.Assert(Text[beforeSlash + 1].Value is 'x' or 'u');
-
-        for (var i = 0; i < count; i++)
-        {
-            if (Position < Text.Length && IsHexChar(CurrentChar))
-            {
-                Position++;
             }
+            current++;
         }
 
-        var result = CreateToken(RoutePatternKind.TextToken, GetSubPatternToCurrentPos(start));
-
-        var length = Position - start;
-        if (length != count)
-        {
-            result = result.AddDiagnosticIfNone(new EmbeddedDiagnostic(
-                FeaturesResources.Insufficient_hexadecimal_digits,
-                GetTextSpan(beforeSlash, Position)));
-        }
-
-        return result;
-    }
-
-    public static bool IsHexChar(AspNetCoreVirtualChar ch)
-        => IsDecimalDigit(ch) ||
-           ch.Value >= 'a' && ch.Value <= 'f' ||
-           ch.Value >= 'A' && ch.Value <= 'F';
-
-    private static bool IsDecimalDigit(AspNetCoreVirtualChar ch)
-        => ch.Value is >= '0' and <= '9';
-
-    private static bool IsOctalDigit(AspNetCoreVirtualChar ch)
-        => ch.Value is >= '0' and <= '7';
-
-    public RoutePatternToken ScanOctalCharacters(RegexOptions options)
-    {
-        var start = Position;
-        var beforeSlash = start - 1;
-
-        // Make sure we're right after the \
-        // And we only should have been called if we were \octal-char 
-        Debug.Assert(Text[beforeSlash].Value == '\\');
-        Debug.Assert(IsOctalDigit(Text[start]));
-
-        const int maxChars = 3;
-        var currentVal = 0;
-
-        for (var i = 0; i < maxChars; i++)
-        {
-            if (Position < Text.Length && IsOctalDigit(CurrentChar))
-            {
-                var octalVal = CurrentChar.Value - '0';
-                Debug.Assert(octalVal is >= 0 and <= 7);
-                currentVal *= 8;
-                currentVal += octalVal;
-
-                Position++;
-            }
-        }
-
-        Debug.Assert(Position - start > 0);
-
-        var result = CreateToken(RoutePatternKind.TextToken, GetSubPatternToCurrentPos(start));
-
-        return result;
+        return false;
     }
 }

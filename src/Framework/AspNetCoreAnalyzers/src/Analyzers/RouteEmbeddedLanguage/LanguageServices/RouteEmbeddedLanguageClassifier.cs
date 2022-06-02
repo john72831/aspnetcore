@@ -5,7 +5,7 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.ExternalAccess.AspNetCore.EmbeddedLanguages;
 using Microsoft.CodeAnalysis.Classification;
-using RoutePatternToken = Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.Common.EmbeddedSyntaxToken<Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.NewRoutePatternKind>;
+using RoutePatternToken = Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.Common.EmbeddedSyntaxToken<Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.RoutePatternKind>;
 
 namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.LanguageServices;
 
@@ -14,13 +14,13 @@ internal class RouteEmbeddedLanguageClassifier : IAspNetCoreEmbeddedLanguageClas
 {
     public void RegisterClassifications(AspNetCoreEmbeddedLanguageClassificationContext context)
     {
-        var parser = NewRoutePatternParser.TryParse(context.VirtualCharSequence);
+        var parser = RoutePatternParser.TryParse(context.VirtualCharSequence);
 
         var visitor = new Visitor(context);
         AddClassifications(parser.Root, visitor);
     }
 
-    private static void AddClassifications(NewRoutePatternNode node, Visitor visitor)
+    private static void AddClassifications(RoutePatternNode node, Visitor visitor)
     {
         node.Accept(visitor);
 
@@ -33,7 +33,7 @@ internal class RouteEmbeddedLanguageClassifier : IAspNetCoreEmbeddedLanguageClas
         }
     }
 
-    private class Visitor : INewRoutePatternNodeVisitor
+    private class Visitor : IRoutePatternNodeVisitor
     {
         public AspNetCoreEmbeddedLanguageClassificationContext _context;
 
@@ -121,7 +121,7 @@ internal class RouteEmbeddedLanguageClassifier : IAspNetCoreEmbeddedLanguageClas
             }
         }
 
-        private void ClassifyWholeNode(NewRoutePatternNode node, string typeName)
+        private void ClassifyWholeNode(RoutePatternNode node, string typeName)
         {
             foreach (var child in node)
             {

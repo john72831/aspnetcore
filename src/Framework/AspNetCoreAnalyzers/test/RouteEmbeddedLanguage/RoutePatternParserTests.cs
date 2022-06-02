@@ -28,7 +28,7 @@ using Microsoft.AspNetCore.Routing.Patterns;
 
 namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 
-using RoutePatternToken = EmbeddedSyntaxToken<NewRoutePatternKind>;
+using RoutePatternToken = EmbeddedSyntaxToken<RoutePatternKind>;
 
 public partial class RoutePatternParserTests
 {
@@ -149,7 +149,7 @@ public partial class RoutePatternParserTests
         throw new Exception("Couldn't find CSharpVirtualCharService.");
     }
 
-    private (SyntaxToken, NewRoutePatternTree, AspNetCoreVirtualCharSequence) JustParseTree(
+    private (SyntaxToken, RoutePatternTree, AspNetCoreVirtualCharSequence) JustParseTree(
         string stringText, bool conversionFailureOk)
     {
         var token = GetStringToken(stringText);
@@ -160,11 +160,11 @@ public partial class RoutePatternParserTests
             return (token, null, allChars);
         }
 
-        var tree = NewRoutePatternParser.TryParse(allChars);
+        var tree = RoutePatternParser.TryParse(allChars);
         return (token, tree, allChars);
     }
 
-    private (NewRoutePatternTree, SourceText) TryParseTree(
+    private (RoutePatternTree, SourceText) TryParseTree(
         string stringText,
         bool conversionFailureOk,
         bool allowDiagnosticsMismatch = false)
@@ -266,7 +266,7 @@ public partial class RoutePatternParserTests
         return treeAndText;
     }
 
-    private static string TreeToText(SourceText text, NewRoutePatternTree tree)
+    private static string TreeToText(SourceText text, RoutePatternTree tree)
     {
         var element = new XElement("Tree",
             NodeToElement(tree.Root));
@@ -301,7 +301,7 @@ public partial class RoutePatternParserTests
         return parameterElement;
     }
 
-    private static XElement CreateDiagnosticsElement(SourceText text, NewRoutePatternTree tree)
+    private static XElement CreateDiagnosticsElement(SourceText text, RoutePatternTree tree)
         => new XElement("Diagnostics",
             tree.Diagnostics.Select(d =>
                 new XElement("Diagnostic",
@@ -312,7 +312,7 @@ public partial class RoutePatternParserTests
     private static XAttribute GetTextAttribute(SourceText text, TextSpan span)
         => new("Text", text.ToString(span));
 
-    private static XElement NodeToElement(NewRoutePatternNode node)
+    private static XElement NodeToElement(RoutePatternNode node)
     {
         var element = new XElement(node.Kind.ToString());
         foreach (var child in node)
@@ -340,7 +340,7 @@ public partial class RoutePatternParserTests
         return element;
     }
 
-    private static void CheckInvariants(NewRoutePatternTree tree, AspNetCoreVirtualCharSequence allChars)
+    private static void CheckInvariants(RoutePatternTree tree, AspNetCoreVirtualCharSequence allChars)
     {
         var root = tree.Root;
         var position = 0;
@@ -348,7 +348,7 @@ public partial class RoutePatternParserTests
         Assert.Equal(allChars.Length, position);
     }
 
-    private static void CheckInvariants(NewRoutePatternNode node, ref int position, AspNetCoreVirtualCharSequence allChars)
+    private static void CheckInvariants(RoutePatternNode node, ref int position, AspNetCoreVirtualCharSequence allChars)
     {
         foreach (var child in node)
         {

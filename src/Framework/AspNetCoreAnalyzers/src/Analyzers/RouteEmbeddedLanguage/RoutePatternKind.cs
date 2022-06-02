@@ -3,93 +3,63 @@
 
 #nullable disable
 
-using Microsoft;
-
 namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 
 internal enum RoutePatternKind
 {
     None = 0,
     EndOfFile,
-    Sequence,
+    Segment,
     CompilationUnit,
-    Text,
-    StartAnchor,
-    EndAnchor,
-    Alternation,
-    Wildcard,
-    CharacterClass,
-    NegatedCharacterClass,
-    CharacterClassRange,
-    CharacterClassSubtraction,
-    PosixProperty,
-
-    ZeroOrMoreQuantifier,
-    OneOrMoreQuantifier,
-    ZeroOrOneQuantifier,
-    ExactNumericQuantifier,
-    OpenRangeNumericQuantifier,
-    ClosedRangeNumericQuantifier,
-    LazyQuantifier,
-
-    SimpleGrouping,
-    SimpleOptionsGrouping,
-    NestedOptionsGrouping,
-    NonCapturingGrouping,
-    PositiveLookaheadGrouping,
-    NegativeLookaheadGrouping,
-    PositiveLookbehindGrouping,
-    NegativeLookbehindGrouping,
-    AtomicGrouping,
-    CaptureGrouping,
-    BalancingGrouping,
-    ConditionalCaptureGrouping,
-    ConditionalExpressionGrouping,
-
-    SimpleEscape,
-    AnchorEscape,
-    CharacterClassEscape,
-    CategoryEscape,
-    ControlEscape,
-    HexEscape,
-    UnicodeEscape,
-    OctalEscape,
-    CaptureEscape,
-    KCaptureEscape,
-    BackreferenceEscape,
+    Seperator,
+    Literal,
+    Replacement,
 
     // Tokens
-    DollarToken,
-    OpenBraceToken,
-    CloseBraceToken,
-    OpenBracketToken,
-    CloseBracketToken,
-    OpenParenToken,
-    CloseParenToken,
-    BarToken,
-    DotToken,
-    CaretToken,
     TextToken,
-    QuestionToken,
-    AsteriskToken,
-    PlusToken,
-    CommaToken,
-    BackslashToken,
-    ColonToken,
-    EqualsToken,
-    ExclamationToken,
-    GreaterThanToken,
-    LessThanToken,
-    MinusToken,
-    SingleQuoteToken,
-
-    // Special multi-character tokens that have to be explicitly requested.
-    OptionsToken,
+    SlashToken,
     NumberToken,
-    CaptureNameToken,
-    EscapeCategoryToken,
-
-    // Trivia
-    CommentTrivia,
-    WhitespaceTrivia,
+    TildeToken,
+    /// <summary>
+    /// {
+    /// </summary>
+    OpenBraceToken,
+    /// <summary>
+    /// }
+    /// </summary>
+    CloseBraceToken,
+    /// <summary>
+    /// [
+    /// </summary>
+    OpenBracketToken,
+    /// <summary>
+    /// ]
+    /// </summary>
+    CloseBracketToken,
+    DotToken,
+    EqualsToken,
+    ColonToken,
+    AsteriskToken,
+    /// <summary>
+    /// (
+    /// </summary>
+    OpenParenToken,
+    /// <summary>
+    /// )
+    /// </summary>
+    CloseParenToken,
+    QuestionMarkToken,
+    CommaToken,
+    Parameter,
+    ParameterName,
+    ParameterNameToken,
+    CatchAll,
+    ParameterPolicy,
+    DefaultValueToken,
+    PolicyNameToken,
+    PolicyFragmentToken,
+    Optional,
+    DefaultValue,
+    PolicyFragment,
+    PolicyFragmentEscaped,
 }
