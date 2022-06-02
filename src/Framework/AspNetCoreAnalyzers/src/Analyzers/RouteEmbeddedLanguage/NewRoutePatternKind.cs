@@ -57,7 +57,9 @@ internal enum NewRoutePatternKind
     ParameterPolicy,
     DefaultValueToken,
     PolicyNameToken,
-    PolicyArgumentToken,
+    PolicyFragmentToken,
     Optional,
     DefaultValue,
+    PolicyFragment,
+    PolicyFragmentEscaped,
 }

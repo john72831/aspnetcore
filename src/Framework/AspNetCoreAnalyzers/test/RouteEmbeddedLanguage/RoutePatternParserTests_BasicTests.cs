@@ -26,6 +26,12 @@ public partial class RoutePatternParserTests
     }
 
     [Fact]
+    public void TestSingleLiteralWithQuestionMark()
+    {
+        Test(@"""hel?lo""", @"");
+    }
+
+    [Fact]
     public void TestSlashSeperatedLiterals()
     {
         Test(@"""hello/world""", @"");
@@ -47,6 +53,12 @@ public partial class RoutePatternParserTests
     public void TestCatchAllParameterNotLast()
     {
         Test(@"""{*a}/{b}""", @"");
+    }
+
+    [Fact]
+    public void TestCatchAllAndOptional()
+    {
+        Test(@"""{*a?}""", @"");
     }
 
     [Fact]
@@ -104,7 +116,25 @@ public partial class RoutePatternParserTests
     }
 
     [Fact]
-    public void TestUnbalancedBraces()
+    public void TestParameterDefaultValue()
+    {
+        Test(@"""{id=Home}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterDefaultValueAndOptional()
+    {
+        Test(@"""{id=Home?}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterQuestionMarkBeforeEscapedClose()
+    {
+        Test(@"""{id?}}}""", @"");
+    }
+
+    [Fact]
+    public void TestUnbalancedBracesInComplexSegment()
     {
         Test(@"""a{foob{bar}c""", @"");
     }
@@ -122,6 +152,18 @@ public partial class RoutePatternParserTests
     }
 
     [Fact]
+    public void TestUnescapedOpenBrace()
+    {
+        Test(@"""{a{b}""", @"");
+    }
+
+    [Fact]
+    public void TestInvalidCharsAndUnescapedOpenBrace()
+    {
+        Test(@"""{a/{b}""", @"");
+    }
+
+    [Fact]
     public void TestParameterWithPolicyAndOptional()
     {
         Test(@"""{id:foo?}""", @"");
@@ -131,6 +173,24 @@ public partial class RoutePatternParserTests
     public void TestParameterWithMultiplePolicies()
     {
         Test(@"""{id:foo:bar}""", @"");
+    }
+
+    [Fact]
+    public void TestPolicyWithEscapedFragmentParameterIncomplete()
+    {
+        Test(@"""{id:foo(hi""", @"");
+    }
+
+    [Fact]
+    public void TestPolicyWithEscapedFragmentIncomplete()
+    {
+        Test(@"""{id:foo(hi}""", @"");
+    }
+
+    [Fact]
+    public void TestPolicyWithMultipleFragments()
+    {
+        Test(@"""{id:foo(hi)bar}""", @"");
     }
 
     [Fact]
@@ -155,5 +215,41 @@ public partial class RoutePatternParserTests
     public void TestParameterWithEscapedPolicyArgument()
     {
         Test(@"""{ssn:regex(^\\d{{3}}-\\d{{2}}-\\d{{4}}$)}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterWithEscapedPolicyArgumentIncomplete()
+    {
+        Test(@"""{ssn:regex(^\\d{{3}}-\\d{{2}}-\\d{{4}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterWithOpenBraceInEscapedPolicyArgument()
+    {
+        Test(@"""{ssn:regex(^\\d{3}})}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterWithInvalidName()
+    {
+        Test(@"""{3}}-\\d{{2}}-\\d{{4}""", @"");
+    }
+
+    [Fact]
+    public void TestInvalidCloseBrace()
+    {
+        Test(@"""-\\d{{2}}-\\d{{4}""", @"");
+    }
+
+    [Fact]
+    public void TestEscapedBraces()
+    {
+        Test(@"""{{2}}""", @"");
+    }
+
+    [Fact]
+    public void TestInvalidCloseBrace2()
+    {
+        Test(@"""{2}}""", @"");
     }
 }

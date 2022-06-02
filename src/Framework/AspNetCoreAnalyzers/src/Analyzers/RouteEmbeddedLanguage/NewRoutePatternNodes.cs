@@ -312,42 +312,40 @@ internal sealed class RoutePatternNameParameterPartNode : NewRoutePatternParamet
         => visitor.Visit(this);
 }
 
-internal class RoutePatternPolicyParameterPartNode : NewRoutePatternParameterPartNode
+internal sealed class RoutePatternPolicyParameterPartNode : NewRoutePatternParameterPartNode
 {
-    public RoutePatternPolicyParameterPartNode(RoutePatternToken colonToken, RoutePatternToken policyNameToken)
+    public RoutePatternPolicyParameterPartNode(RoutePatternToken colonToken, ImmutableArray<NewRoutePatternNode> policyFragments)
         : base(NewRoutePatternKind.ParameterPolicy)
     {
         Debug.Assert(colonToken.Kind == NewRoutePatternKind.ColonToken);
-        Debug.Assert(policyNameToken.Kind == NewRoutePatternKind.PolicyNameToken);
         ColonToken = colonToken;
-        PolicyNameToken = policyNameToken;
+        PolicyFragments = policyFragments;
     }
 
     public RoutePatternToken ColonToken { get; }
-    public RoutePatternToken PolicyNameToken { get; }
+    public ImmutableArray<NewRoutePatternNode> PolicyFragments { get; }
 
-    internal override int ChildCount => 2;
+    internal override int ChildCount => PolicyFragments.Length + 1;
 
     internal override RoutePatternNodeOrToken ChildAt(int index)
         => index switch
         {
             0 => ColonToken,
-            1 => PolicyNameToken,
-            _ => throw new InvalidOperationException(),
+            _ => PolicyFragments[index - 1],
         };
 
     public override void Accept(INewRoutePatternNodeVisitor visitor)
         => visitor.Visit(this);
 }
 
-internal sealed class RoutePatternPolicyWithArgumentsParameterPartNode : RoutePatternPolicyParameterPartNode
+internal sealed class RoutePatternPolicyFragmentEscapedNode : NewRoutePatternNode
 {
-    public RoutePatternPolicyWithArgumentsParameterPartNode(
-        RoutePatternToken colonToken, RoutePatternToken policyNameToken, RoutePatternToken openParenToken, RoutePatternToken argumentToken, RoutePatternToken closeParenToken)
-        : base(colonToken, policyNameToken)
+    public RoutePatternPolicyFragmentEscapedNode(
+        RoutePatternToken openParenToken, RoutePatternToken argumentToken, RoutePatternToken closeParenToken)
+        : base(NewRoutePatternKind.PolicyFragmentEscaped)
     {
         Debug.Assert(openParenToken.Kind == NewRoutePatternKind.OpenParenToken);
-        Debug.Assert(argumentToken.Kind == NewRoutePatternKind.PolicyArgumentToken);
+        Debug.Assert(argumentToken.Kind == NewRoutePatternKind.PolicyFragmentToken);
         Debug.Assert(closeParenToken.Kind == NewRoutePatternKind.CloseParenToken);
         OpenParenToken = openParenToken;
         CloseParenToken = closeParenToken;
@@ -358,16 +356,38 @@ internal sealed class RoutePatternPolicyWithArgumentsParameterPartNode : RoutePa
     public RoutePatternToken ArgumentToken { get; }
     public RoutePatternToken CloseParenToken { get; }
 
-    internal override int ChildCount => base.ChildCount + 3;
+    internal override int ChildCount => 3;
 
     internal override RoutePatternNodeOrToken ChildAt(int index)
         => index switch
         {
-            0 => ColonToken,
-            1 => PolicyNameToken,
-            2 => OpenParenToken,
-            3 => ArgumentToken,
-            4 => CloseParenToken,
+            0 => OpenParenToken,
+            1 => ArgumentToken,
+            2 => CloseParenToken,
+            _ => throw new InvalidOperationException(),
+        };
+
+    public override void Accept(INewRoutePatternNodeVisitor visitor)
+        => visitor.Visit(this);
+}
+
+internal sealed class RoutePatternPolicyFragment : NewRoutePatternNode
+{
+    public RoutePatternPolicyFragment(RoutePatternToken argumentToken)
+        : base(NewRoutePatternKind.PolicyFragment)
+    {
+        Debug.Assert(argumentToken.Kind == NewRoutePatternKind.PolicyFragmentToken);
+        ArgumentToken = argumentToken;
+    }
+
+    public RoutePatternToken ArgumentToken { get; }
+
+    internal override int ChildCount => 1;
+
+    internal override RoutePatternNodeOrToken ChildAt(int index)
+        => index switch
+        {
+            0 => ArgumentToken,
             _ => throw new InvalidOperationException(),
         };
 

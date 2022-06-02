@@ -17,7 +17,8 @@ internal interface INewRoutePatternNodeVisitor
     void Visit(RoutePatternCatchAllParameterPartNode node);
     void Visit(RoutePatternNameParameterPartNode node);
     void Visit(RoutePatternPolicyParameterPartNode node);
-    void Visit(RoutePatternPolicyWithArgumentsParameterPartNode node);
+    void Visit(RoutePatternPolicyFragmentEscapedNode node);
+    void Visit(RoutePatternPolicyFragment node);
     void Visit(RoutePatternOptionalParameterPartNode node);
     void Visit(RoutePatternDefaultValueParameterPartNode node);
 }
