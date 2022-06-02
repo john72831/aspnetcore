@@ -1,12 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage.Common;
-using Microsoft.CodeAnalysis.EmbeddedLanguages.VirtualChars;
 using Microsoft.CodeAnalysis.ExternalAccess.AspNetCore.EmbeddedLanguages;
 using Microsoft.CodeAnalysis.Text;
 
@@ -15,78 +15,14 @@ namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 using static RoutePatternHelpers;
 using RoutePatternToken = EmbeddedSyntaxToken<NewRoutePatternKind>;
 
-/// <summary>
-/// Produces a <see cref="RoutePatternTree"/> from a sequence of <see cref="VirtualChar"/> characters.
-///
-/// Importantly, this parser attempts to replicate diagnostics with almost the exact same text
-/// as the native .NET regex parser.  This is important so that users get an understandable
-/// experience where it appears to them that this is all one cohesive system and that the IDE
-/// will let them discover and fix the same issues they would encounter when previously trying
-/// to just compile and execute these regexes.
-/// </summary>
-/// <remarks>
-/// Invariants we try to maintain (and should consider a bug if we do not): l 1. If the .NET
-/// regex parser does not report an error for a given pattern, we should not either. it would be
-/// very bad if we told the user there was something wrong with there pattern when there really
-/// wasn't.
-///
-/// 2. If the .NET regex parser does report an error for a given pattern, we should either not
-/// report an error (not recommended) or report the same error at an appropriate location in the
-/// pattern.  Not reporting the error can be confusing as the user will think their pattern is
-/// ok, when it really is not.  However, it can be acceptable to do this as it's not telling
-/// them that something is actually wrong, and it may be too difficult to find and report the
-/// same error.  Note: there is only one time we do this in this parser (see the deviation
-/// documented in <see cref="ParsePossibleEcmascriptBackreferenceEscape"/>).
-///
-/// Note1: "report the same error" means that we will attempt to report the error using the same
-/// text the .NET regex parser uses for its error messages.  This is so that the user is not
-/// confused when they use the IDE vs running the regex by getting different messages for the
-/// same issue.
-///
-/// Note2: the above invariants make life difficult at times.  This happens due to the fact that
-/// the .NET parser is multi-pass.  Meaning it does a first scan (which may report errors), then
-/// does the full parse.  This means that it might report an error in a later location during
-/// the initial scan than it would during the parse.  We replicate that behavior to follow the
-/// second invariant.
-///
-/// Note3: It would be nice if we could check these invariants at runtime, so we could control
-/// our behavior by the behavior of the real .NET regex engine.  For example, if the .NET regex
-/// engine did not report any issues, we could suppress any diagnostics we generated and we
-/// could log an NFW to record which pattern we deviated on so we could fix the issue for a
-/// future release.  However, we cannot do this as the .NET regex engine has no guarantees about
-/// its performance characteristics.  For example, certain regex patterns might end up causing
-/// that engine to consume unbounded amounts of CPU and memory.  This is because the .NET regex
-/// engine is not just a parser, but something that builds an actual recognizer using techniques
-/// that are not necessarily bounded.  As such, while we test ourselves around it during our
-/// tests, we cannot do the same at runtime as part of the IDE.
-///
-/// This parser was based off the corefx RegexParser based at:
-/// https://github.com/dotnet/corefx/blob/f759243d724f462da0bcef54e86588f8a55352c6/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexParser.cs#L1
-///
-/// Note4: The .NET parser itself changes over time (for example to fix behavior that even it
-/// thinks is buggy).  When this happens, we have to make a choice as to which behavior to
-/// follow. In general, the overall principle is that we should follow the more lenient
-/// behavior.  If we end up taking the more strict interpretation we risk giving people an error
-/// during design time that they would not get at runtime.  It's far worse to have that than to
-/// not report an error, even though one might happen later.
-/// </remarks>
 internal partial struct NewRoutePatternParser
 {
-    private readonly ImmutableDictionary<string, TextSpan> _captureNamesToSpan;
-    private readonly ImmutableDictionary<int, TextSpan> _captureNumbersToSpan;
-
     private NewRoutePatternLexer _lexer;
     private RoutePatternToken _currentToken;
 
-    private NewRoutePatternParser(
-        AspNetCoreVirtualCharSequence text,
-        ImmutableDictionary<string, TextSpan> captureNamesToSpan,
-        ImmutableDictionary<int, TextSpan> captureNumbersToSpan) : this()
+    private NewRoutePatternParser(AspNetCoreVirtualCharSequence text) : this()
     {
         _lexer = new NewRoutePatternLexer(text);
-
-        _captureNamesToSpan = captureNamesToSpan;
-        _captureNumbersToSpan = captureNumbersToSpan;
 
         // Get the first token.  It is allowed to have trivia on it.
         ConsumeCurrentToken();
@@ -124,9 +60,7 @@ internal partial struct NewRoutePatternParser
         // This is necessary as .NET regexes allow references to *future* captures.
         // As such, we don't know when we're seeing a reference if it's to something
         // that exists or not.
-        var tree1 = new NewRoutePatternParser(text,
-            ImmutableDictionary<string, TextSpan>.Empty,
-            ImmutableDictionary<int, TextSpan>.Empty).ParseTree();
+        var tree1 = new NewRoutePatternParser(text).ParseTree();
 
         return tree1;
     }
@@ -147,17 +81,16 @@ internal partial struct NewRoutePatternParser
 
         var root = new RoutePatternCompilationUnit(rootParts, _currentToken);
 
+        var routeParameters = new Dictionary<string, RouteParameter>(StringComparer.OrdinalIgnoreCase);
         var seenDiagnostics = new HashSet<EmbeddedDiagnostic>();
         var diagnostics = new List<EmbeddedDiagnostic>();
-        CollectDiagnosticsWorker(root, seenDiagnostics, diagnostics);
 
+        CollectDiagnostics(root, seenDiagnostics, diagnostics);
         ValidateNoConsecutiveParameters(root, diagnostics);
         ValidateCatchAllParameters(root, diagnostics);
-        ValidateParameterParts(root, diagnostics);
+        ValidateParameterParts(root, diagnostics, routeParameters);
 
-        return new NewRoutePatternTree(
-            _lexer.Text, root, diagnostics.ToImmutable(),
-            _captureNamesToSpan, _captureNumbersToSpan);
+        return new NewRoutePatternTree(_lexer.Text, root, diagnostics.ToImmutable(), routeParameters.ToImmutableDictionary());
     }
 
     private static void ValidateCatchAllParameters(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics)
@@ -217,7 +150,7 @@ internal partial struct NewRoutePatternParser
         }
     }
 
-    private static void ValidateParameterParts(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics)
+    private static void ValidateParameterParts(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics, Dictionary<string, RouteParameter> routeParameters)
     {
         foreach (var part in root)
         {
@@ -228,31 +161,64 @@ internal partial struct NewRoutePatternParser
                     if (segmentPart.Kind == NewRoutePatternKind.Parameter)
                     {
                         var parameterNode = (RoutePatternParameterNode)segmentPart.Node;
-                        var hasDefault = false;
                         var hasOptional = false;
                         var hasCatchAll = false;
+                        var encodeSlashes = true;
+                        string? name = null;
+                        string? defaultValue = null;
+                        List<string> policies = new List<string>();
                         foreach (var parameterPart in parameterNode)
                         {
                             switch (parameterPart.Kind)
                             {
+                                case NewRoutePatternKind.ParameterName:
+                                    var parameterNameNode = (RoutePatternNameParameterPartNode)parameterPart.Node;
+                                    if (!parameterNameNode.ParameterNameToken.IsMissing)
+                                    {
+                                        name = parameterNameNode.ParameterNameToken.Value.ToString();
+                                    }
+                                    break;
                                 case NewRoutePatternKind.Optional:
                                     hasOptional = true;
                                     break;
                                 case NewRoutePatternKind.DefaultValue:
-                                    hasDefault = true;
+                                    var defaultValueNode = (RoutePatternDefaultValueParameterPartNode)parameterPart.Node;
+                                    if (!defaultValueNode.DefaultValueToken.IsMissing)
+                                    {
+                                        defaultValue = defaultValueNode.DefaultValueToken.Value.ToString();
+                                    }
                                     break;
                                 case NewRoutePatternKind.CatchAll:
+                                    var catchAllNode = (RoutePatternCatchAllParameterPartNode)parameterPart.Node;
+                                    encodeSlashes = catchAllNode.AsteriskToken.VirtualChars.Length == 1;
                                     hasCatchAll = true;
+                                    break;
+                                case NewRoutePatternKind.ParameterPolicy:
+                                    policies.Add(parameterPart.Node.ToString());
                                     break;
                             }
                         }
-                        if (hasDefault && hasOptional)
+
+                        var routeParameter = new RouteParameter(name, encodeSlashes, defaultValue, hasOptional, hasCatchAll, policies.ToImmutable());
+                        if (routeParameter.DefaultValue != null && routeParameter.IsOptional)
                         {
                             diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_OptionalCannotHaveDefaultValue, parameterNode.GetSpan()));
                         }
-                        if (hasCatchAll && hasOptional)
+                        if (routeParameter.IsCatchAll && routeParameter.IsOptional)
                         {
                             diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CatchAllCannotBeOptional, parameterNode.GetSpan()));
+                        }
+
+                        if (routeParameter.Name != null)
+                        {
+                            if (!routeParameters.ContainsKey(routeParameter.Name))
+                            {
+                                routeParameters.Add(routeParameter.Name, routeParameter);
+                            }
+                            else
+                            {
+                                diagnostics.Add(new EmbeddedDiagnostic(Resources.FormatTemplateRoute_RepeatedParameter(routeParameter.Name), parameterNode.GetSpan()));
+                            }
                         }
                     }
                 }
@@ -260,13 +226,13 @@ internal partial struct NewRoutePatternParser
         }
     }
 
-    private void CollectDiagnosticsWorker(NewRoutePatternNode node, HashSet<EmbeddedDiagnostic> seenDiagnostics, List<EmbeddedDiagnostic> diagnostics)
+    private void CollectDiagnostics(NewRoutePatternNode node, HashSet<EmbeddedDiagnostic> seenDiagnostics, List<EmbeddedDiagnostic> diagnostics)
     {
         foreach (var child in node)
         {
             if (child.IsNode)
             {
-                CollectDiagnosticsWorker(child.Node, seenDiagnostics, diagnostics);
+                CollectDiagnostics(child.Node, seenDiagnostics, diagnostics);
             }
             else
             {

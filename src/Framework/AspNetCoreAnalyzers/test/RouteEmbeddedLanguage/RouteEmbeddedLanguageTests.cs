@@ -80,7 +80,7 @@ class Program
 
     void Goo()
     {
-        [|this.field = @""$\a(?#comment)"";|]
+        [|this.field = @""{id?}"";|]
     }
 }" + EmbeddedLanguagesTestConstants.StringSyntaxAttributeCodeCSharp,
 Field("field"),

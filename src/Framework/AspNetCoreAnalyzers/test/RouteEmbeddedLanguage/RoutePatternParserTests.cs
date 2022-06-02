@@ -181,9 +181,11 @@ public partial class RoutePatternParserTests
         var treeAndText = (tree, sourceText);
 
         RoutePattern routePattern = null;
+        IReadOnlyList<RoutePatternParameterPart> parsedRoutePatterns = null;
         try
         {
             routePattern = RoutePatternFactory.Parse(token.ValueText);
+            parsedRoutePatterns = routePattern.Parameters;
         }
         catch (Exception ex)
         {
@@ -218,6 +220,43 @@ public partial class RoutePatternParserTests
             Assert.False(true, $"Parsing '{token.ValueText}' didn't throw an error for expected diagnostics: \r\n" + expectedDiagnostics.ToString().Replace(@"""", @""""""));
         }
 
+        if (parsedRoutePatterns != null)
+        {
+            foreach (var parsedRoutePattern in parsedRoutePatterns)
+            {
+                try
+                {
+                    if (tree.RouteParameters.TryGetValue(parsedRoutePattern.Name, out var routeParameter))
+                    {
+                        Assert.True(routeParameter.IsOptional == parsedRoutePattern.IsOptional, "IsOptional");
+                        Assert.True(routeParameter.IsCatchAll == parsedRoutePattern.IsCatchAll, "IsCatchAll");
+                        Assert.True(routeParameter.EncodeSlashes == parsedRoutePattern.EncodeSlashes, "EncodeSlashes");
+                        Assert.True(Equals(routeParameter.DefaultValue, parsedRoutePattern.Default), "DefaultValue");
+                        Assert.True(routeParameter.Policies.Length == parsedRoutePattern.ParameterPolicies.Count, "ParameterPolicies");
+                        for (var i = 0; i < parsedRoutePattern.ParameterPolicies.Count; i++)
+                        {
+                            var expected = parsedRoutePattern.ParameterPolicies[i].Content;
+                            var actual = routeParameter.Policies[i].Substring(1).Replace("{{", "{").Replace("}}", "}");
+                            Assert.True(expected == actual, $"Policy {i}. Expected: '{expected}', Actual: '{actual}'.");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception($"Couldn't find parameter '{parsedRoutePattern.Name}'.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Parsing '{token.ValueText}' has route parameter '{parsedRoutePattern.Name}' mismatch.", ex);
+                }
+
+            }
+
+            Assert.True(
+                parsedRoutePatterns.Count == tree.RouteParameters.Count,
+                $"Parsing '{token.ValueText}' has mismatched parameter counts.");
+        }
+
         //Assert.True(regex.GetGroupNumbers().OrderBy(v => v).SequenceEqual(
         //    tree.CaptureNumbersToSpan.Keys.OrderBy(v => v)));
 
@@ -237,13 +276,29 @@ public partial class RoutePatternParserTests
             element.Add(CreateDiagnosticsElement(text, tree));
         }
 
-        element.Add(new XElement("Captures",
-            tree.CaptureNumbersToSpan.OrderBy(kvp => kvp.Key).Select(kvp =>
-                new XElement("Capture", new XAttribute("Name", kvp.Key), new XAttribute("Span", kvp.Value), GetTextAttribute(text, kvp.Value))),
-            tree.CaptureNamesToSpan.OrderBy(kvp => kvp.Key).Select(kvp =>
-                new XElement("Capture", new XAttribute("Name", kvp.Key), new XAttribute("Span", kvp.Value), GetTextAttribute(text, kvp.Value)))));
+        element.Add(new XElement("Parameters",
+            tree.RouteParameters.OrderBy(kvp => kvp.Key).Select(kvp => CreateParameter(kvp.Value))));
 
         return element.ToString();
+    }
+
+    private static XElement CreateParameter(RouteParameter parameter)
+    {
+        var parameterElement = new XElement("Parameter",
+            new XAttribute("Name", parameter.Name),
+            new XAttribute("IsCatchAll", parameter.IsCatchAll),
+            new XAttribute("IsOptional", parameter.IsOptional),
+            new XAttribute("EncodeSlashes", parameter.EncodeSlashes));
+        if (parameter.DefaultValue != null)
+        {
+            parameterElement.Add(new XAttribute("DefaultValue", parameter.DefaultValue));
+        }
+        foreach (var policy in parameter.Policies)
+        {
+            parameterElement.Add(new XElement("Policy", policy));
+        }
+
+        return parameterElement;
     }
 
     private static XElement CreateDiagnosticsElement(SourceText text, NewRoutePatternTree tree)

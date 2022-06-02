@@ -38,6 +38,12 @@ public partial class RoutePatternParserTests
     }
 
     [Fact]
+    public void TestDuplicateParameterNames()
+    {
+        Test(@"""{a}/{a}""", @"");
+    }
+
+    [Fact]
     public void TestSlashSeperatedSegments()
     {
         Test(@"""{a}/{b}""", @"");
