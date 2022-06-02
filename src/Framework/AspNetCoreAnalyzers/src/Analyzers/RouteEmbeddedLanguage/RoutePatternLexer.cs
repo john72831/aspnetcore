@@ -174,8 +174,10 @@ internal struct RoutePatternLexer
         while (Position < Text.Length)
         {
             var ch = CurrentChar;
-            if (ch.Value is ':' or '=')
+            if (ch.Value is ':' or '=' && start != Position)
             {
+                // Colon and equals ends a parameter name unless they're the first character.
+                // I think this is a bug in RoutePatternParser but follow it for compatibility.
                 break;
             }
             else if (IsTrailingQuestionMark(ch))

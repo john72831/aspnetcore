@@ -17,4 +17,17 @@ internal static class EmbeddedSyntaxHelpers
 
     public static TextSpan GetSpan(AspNetCoreVirtualChar firstChar, AspNetCoreVirtualChar lastChar)
         => TextSpan.FromBounds(firstChar.Span.Start, lastChar.Span.End);
+
+    public static RoutePatternNode GetChildNode(this RoutePatternNode node, RoutePatternKind kind)
+    {
+        foreach (var child in node)
+        {
+            if (child.IsNode && child.Kind == kind)
+            {
+                return child.Node;
+            }
+        }
+
+        return null;
+    }
 }

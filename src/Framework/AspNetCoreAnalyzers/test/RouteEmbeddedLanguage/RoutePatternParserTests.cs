@@ -51,7 +51,7 @@ public partial class RoutePatternParserTests
         return token;
     }
 
-    private void Test(string stringText, string expected,
+    private RoutePatternTree Test(string stringText, string expected = null,
         bool runSubTreeTests = true,
         bool allowDiagnosticsMismatch = false)
     {
@@ -72,7 +72,12 @@ public partial class RoutePatternParserTests
             .Replace("&quot;", DoubleQuoteEscaping);
 
         _outputHelper.WriteLine(actual);
-        //Assert.Equal(expected.Replace("\"", DoubleQuoteEscaping), actual);
+        if (expected != null)
+        {
+            //Assert.Equal(expected.Replace("\"", DoubleQuoteEscaping), actual);
+        }
+
+        return tree;
     }
 
     private void TryParseSubTrees(string stringText, bool allowDiagnosticsMismatch)

@@ -64,11 +64,54 @@ internal partial struct RoutePatternParser
         var diagnostics = new List<EmbeddedDiagnostic>();
 
         CollectDiagnostics(root, seenDiagnostics, diagnostics);
+        ValidateStart(root, diagnostics);
         ValidateNoConsecutiveParameters(root, diagnostics);
+        ValidateNoConsecutiveSeparators(root, diagnostics);
         ValidateCatchAllParameters(root, diagnostics);
         ValidateParameterParts(root, diagnostics, routeParameters);
 
         return new RoutePatternTree(_lexer.Text, root, diagnostics.ToImmutableArray(), routeParameters.ToImmutableDictionary());
+    }
+
+    private static void ValidateStart(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics)
+    {
+        if (root.ChildCount > 1 &&
+            root.ChildAt(0).Node is var firstNode &&
+            firstNode.Kind == RoutePatternKind.Segment)
+        {
+            if (firstNode.ChildCount > 0 &&
+                firstNode.ChildAt(0).Node is var segmentPart &&
+                segmentPart.Kind == RoutePatternKind.Literal)
+            {
+                var literalNode = (RoutePatternLiteralNode)segmentPart;
+                var startText = literalNode.LiteralToken.Value.ToString();
+
+                // Route pattern starts with tilde
+                if (startText[0] == '~')
+                {
+                    // Report problem if either:
+                    // 1. There is more text. It can't be a slash.
+                    // 2. There are more segment parameters. It can't be a slash.
+                    if (startText.Length > 1 ||
+                        firstNode.ChildCount > 2)
+                    {
+                        diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_InvalidRouteTemplate, segmentPart.GetSpan()));
+                        return;
+                    }
+
+                    // No problem if tilde is followed by slash.
+                    if (root.ChildCount > 2 &&
+                        root.ChildAt(1).Node is var secondNode &&
+                        secondNode.Kind == RoutePatternKind.Seperator)
+                    {
+                        return;
+                    }
+
+                    // Tilde by itself.
+                    diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_InvalidRouteTemplate, segmentPart.GetSpan()));
+                }
+            }
+        }
     }
 
     private static void ValidateCatchAllParameters(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics)
@@ -78,30 +121,28 @@ internal partial struct RoutePatternParser
         {
             if (part.Kind == RoutePatternKind.Segment)
             {
-                if (catchAllParameterNode == null)
+                if (catchAllParameterNode != null)
                 {
-                    foreach (var segmentPart in part.Node)
+                    // Validate that there aren't segments following catch-all.
+                    diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CatchAllMustBeLast, catchAllParameterNode.GetSpan()));
+                    break;
+                }
+
+                // Check that segment doesn't have catch-all in a complex segment.
+                foreach (var segmentPart in part.Node)
+                {
+                    if (segmentPart.Kind == RoutePatternKind.Parameter)
                     {
-                        if (segmentPart.Kind == RoutePatternKind.Parameter)
+                        var catchAllParameterPart = (RoutePatternCatchAllParameterPartNode)segmentPart.Node.GetChildNode(RoutePatternKind.CatchAll);
+                        if (catchAllParameterPart != null)
                         {
-                            foreach (var parameterParts in segmentPart.Node)
+                            catchAllParameterNode = (RoutePatternParameterNode)segmentPart.Node;
+                            if (part.Node.ChildCount > 1)
                             {
-                                if (parameterParts.Kind == RoutePatternKind.CatchAll)
-                                {
-                                    catchAllParameterNode = (RoutePatternParameterNode)segmentPart.Node;
-                                    if (part.Node.ChildCount > 1)
-                                    {
-                                        diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CannotHaveCatchAllInMultiSegment, catchAllParameterNode.GetSpan()));
-                                    }
-                                }
+                                diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CannotHaveCatchAllInMultiSegment, catchAllParameterNode.GetSpan()));
                             }
                         }
                     }
-                }
-                else
-                {
-                    diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CatchAllMustBeLast, catchAllParameterNode.GetSpan()));
-                    break;
                 }
             }
         }
@@ -109,21 +150,55 @@ internal partial struct RoutePatternParser
 
     private static void ValidateNoConsecutiveParameters(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics)
     {
-        RoutePatternKind? previousNodeKind = null;
+        RoutePatternNode previousNode = null;
         foreach (var part in root)
         {
             if (part.Kind == RoutePatternKind.Segment)
             {
                 foreach (var segmentPart in part.Node)
                 {
-                    if (previousNodeKind == RoutePatternKind.Parameter && segmentPart.Kind == RoutePatternKind.Parameter)
+                    if (previousNode != null && previousNode.Kind == RoutePatternKind.Parameter)
+                    {
+                        var previousParameterNode = (RoutePatternParameterNode)previousNode;
+                        var isOptional = previousParameterNode.GetChildNode(RoutePatternKind.Optional) != null;
+                        if (isOptional)
+                        {
+                            var message = Resources.FormatTemplateRoute_OptionalParameterHasTobeTheLast(
+                                part.Node.ToString(),
+                                previousParameterNode.GetChildNode(RoutePatternKind.ParameterName).ToString(),
+                                segmentPart.Node.ToString());
+                            diagnostics.Add(new EmbeddedDiagnostic(message, part.Node.GetSpan()));                            
+                        }
+                    }
+
+                    if (segmentPart.Kind == RoutePatternKind.Parameter && previousNode != null)
                     {
                         var parameterNode = (RoutePatternParameterNode)segmentPart.Node;
-                        diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CannotHaveConsecutiveParameters, parameterNode.GetSpan()));
+                        var isOptional = parameterNode.GetChildNode(RoutePatternKind.Optional) != null;
+                        if (isOptional)
+                        {
+                            // Optional parameter must either be in its own segment or follow a period.
+                            // e.g. {filename}.{ext?}
+                            if (previousNode.Kind != RoutePatternKind.Literal || ((RoutePatternLiteralNode)previousNode).LiteralToken.Value.ToString() != ".")
+                            {
+                                var message = Resources.FormatTemplateRoute_OptionalParameterCanbBePrecededByPeriod(
+                                    part.Node.ToString(),
+                                    parameterNode.GetChildNode(RoutePatternKind.ParameterName).ToString(),
+                                    previousNode.ToString());
+                                diagnostics.Add(new EmbeddedDiagnostic(message, parameterNode.GetSpan()));
+                            }
+                        }
+                        else
+                        {
+                            if (previousNode.Kind == RoutePatternKind.Parameter)
+                            {
+                                diagnostics.Add(new EmbeddedDiagnostic(Resources.TemplateRoute_CannotHaveConsecutiveParameters, parameterNode.GetSpan()));
+                            }
+                        }
                     }
-                    previousNodeKind = segmentPart.Kind;
+                    previousNode = segmentPart.Node;
                 }
-                previousNodeKind = null;
+                previousNode = null;
             }
         }
     }
@@ -200,6 +275,30 @@ internal partial struct RoutePatternParser
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private static void ValidateNoConsecutiveSeparators(RoutePatternCompilationUnit root, List<EmbeddedDiagnostic> diagnostics)
+    {
+        RoutePatternSegmentSeperatorNode? previousNode = null;
+        foreach (var part in root)
+        {
+            if (part.Kind == RoutePatternKind.Seperator)
+            {
+                var currentNode = (RoutePatternSegmentSeperatorNode)part.Node;
+                if (previousNode != null)
+                {
+                    diagnostics.Add(
+                        new EmbeddedDiagnostic(
+                            Resources.TemplateRoute_CannotHaveConsecutiveSeparators,
+                            EmbeddedSyntaxHelpers.GetSpan(previousNode.SeperatorToken, currentNode.SeperatorToken)));
+                }
+                previousNode = currentNode;
+            }
+            else
+            {
+                previousNode = null;
             }
         }
     }

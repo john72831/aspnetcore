@@ -258,4 +258,52 @@ public partial class RoutePatternParserTests
     {
         Test(@"""{2}}""", @"");
     }
+
+    [Fact]
+    public void TestOptionalParameterPrecededByParameter()
+    {
+        Test(@"""{p1}{p2?}""", @"");
+    }
+
+    [Fact]
+    public void TestOptionalParameterPrecededByLiteral()
+    {
+        Test(@"""{p1}-{p2?}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterColonStart()
+    {
+        Test(@"""{:hi}""", @"");
+    }
+
+    [Fact]
+    public void TestParameterCatchAllColonStart()
+    {
+        Test(@"""{**:hi}""", @"");
+    }
+
+    [Fact]
+    public void TestTilde()
+    {
+        Test(@"""~""", @"");
+    }
+
+    [Fact]
+    public void TestTwoTildes()
+    {
+        Test(@"""~~""", @"");
+    }
+
+    [Fact]
+    public void TestTildeSlash()
+    {
+        Test(@"""~/""", @"");
+    }
+
+    [Fact]
+    public void TestTildeParameter()
+    {
+        Test(@"""~{id}""", @"");
+    }
 }
