@@ -165,4 +165,10 @@
   <data name="TemplateRoute_Exception" xml:space="preserve">
     <value>An error occurred while creating the route with name '{0}' and template '{1}'.</value>
   </data>
+  <data name="Invalid_Route_pattern" xml:space="preserve">
+    <value>Invalid route pattern</value>
+  </data>
+  <data name="Route_issue_0" xml:space="preserve">
+    <value>Route issue: {0}</value>
+  </data>
 </root>

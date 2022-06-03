@@ -34,7 +34,6 @@ public partial class RoutePatternParserTests
 {
     private const string _statmentPrefix = "var v = ";
     private readonly ITestOutputHelper _outputHelper;
-    private static Func<SyntaxToken, AspNetCoreVirtualCharSequence> _virtualCharsCreator;
 
     public RoutePatternParserTests(ITestOutputHelper outputHelper)
     {
@@ -117,48 +116,11 @@ public partial class RoutePatternParserTests
         }
     }
 
-    internal static AspNetCoreVirtualCharSequence TryConvertToVirtualChars(SyntaxToken syntaxToken)
-    {
-        _virtualCharsCreator ??= BuildVirtualCharsCreator();
-        return _virtualCharsCreator(syntaxToken);
-    }
-
-    private static Func<SyntaxToken, AspNetCoreVirtualCharSequence> BuildVirtualCharsCreator()
-    {
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-        foreach (var assembly in assemblies)
-        {
-            var types = assembly.GetTypes();
-            foreach (var t in types)
-            {
-                if (t.FullName == "Microsoft.CodeAnalysis.CSharp.EmbeddedLanguages.VirtualChars.CSharpVirtualCharService")
-                {
-                    var instanceProperty = t.GetField("Instance", BindingFlags.Static | BindingFlags.Public);
-                    var instance = instanceProperty.GetValue(null);
-
-                    var tryConvertToVirtualCharsMethod = t.GetMethod("TryConvertToVirtualChars", BindingFlags.Instance | BindingFlags.Public);
-
-                    var ctor = typeof(AspNetCoreVirtualCharSequence).GetTypeInfo().DeclaredConstructors.First();
-
-                    return (syntaxToken) =>
-                    {
-                        var sequence = tryConvertToVirtualCharsMethod.Invoke(instance, new object[] { syntaxToken });
-                        var aspNetCoreSequence = (AspNetCoreVirtualCharSequence)ctor.Invoke(new object[] { sequence });
-                        return aspNetCoreSequence;
-                    };
-                }
-            }
-        }
-
-        throw new Exception("Couldn't find CSharpVirtualCharService.");
-    }
-
     private (SyntaxToken, RoutePatternTree, AspNetCoreVirtualCharSequence) JustParseTree(
         string stringText, bool conversionFailureOk)
     {
         var token = GetStringToken(stringText);
-        var allChars = TryConvertToVirtualChars(token);
+        var allChars = AspNetCoreCSharpVirtualCharService.Instance.TryConvertToVirtualChars(token);
         if (allChars.IsDefault())
         {
             Assert.True(conversionFailureOk, "Failed to convert text to token.");

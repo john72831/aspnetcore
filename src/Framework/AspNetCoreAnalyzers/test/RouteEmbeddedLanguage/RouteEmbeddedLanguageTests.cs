@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using Microsoft.AspNetCore.Analyzer.Testing;
+using Microsoft.AspNetCore.Analyzers.RenderTreeBuilder;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Editor.UnitTests.Classification;
 using Microsoft.CodeAnalysis.Host;
@@ -12,7 +13,7 @@ using Roslyn.Test.Utilities;
 using Xunit.Abstractions;
 using static Microsoft.CodeAnalysis.Editor.UnitTests.Classification.FormattedClassifications;
 
-namespace Microsoft.AspNetCore.Analyzers.RenderTreeBuilder;
+namespace Microsoft.AspNetCore.Analyzers.RouteEmbeddedLanguage;
 
 public class RouteEmbeddedLanguageTests
 {
